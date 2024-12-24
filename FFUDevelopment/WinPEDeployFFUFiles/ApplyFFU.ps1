@@ -1,3 +1,11 @@
+# WCSD Edits
+#   WCSD Edit 1 <-- Search for this to find the edit in the script
+#       - Set computer name as PREFIX-AssetTag or just AssetTag 
+#   WCSD Edit 2
+#       - Do not continue if computer name is not getting set
+#   WCSD Edit 3
+#       - Autoselect Driver
+
 function Get-USBDrive(){
     $USBDriveLetter = (Get-Volume | Where-Object {$_.DriveType -eq 'Removable' -and $_.FileSystemType -eq 'NTFS'}).DriveLetter
     if ($null -eq $USBDriveLetter){
@@ -14,16 +22,18 @@ function Get-USBDrive(){
     return $USBDriveLetter
 }
 
-function Get-HardDrive(){
+function Get-HardDrives(){
     $SystemInfo = Get-WmiObject -Class 'Win32_ComputerSystem'
     $Manufacturer = $SystemInfo.Manufacturer
     $Model = $SystemInfo.Model
     WriteLog "Device Manufacturer: $Manufacturer"
     WriteLog "Device Model: $Model"
     WriteLog 'Getting Hard Drive info'
+    [array]$DiskDrives = @()
+    
     if ($Manufacturer -eq 'Microsoft Corporation' -and $Model -eq 'Virtual Machine'){
         WriteLog 'Running in a Hyper-V VM. Getting virtual disk on Index 0 and SCSILogicalUnit 0'
-        $DiskDrive = Get-WmiObject -Class 'Win32_DiskDrive' | Where-Object {$_.MediaType -eq 'Fixed hard disk media' `
+        $DiskDrives += Get-WmiObject -Class 'Win32_DiskDrive' | Where-Object {$_.MediaType -eq 'Fixed hard disk media' `
         -and $_.Model -eq 'Microsoft Virtual Disk' `
         -and $_.Index -eq 0 `
         -and $_.SCSILogicalUnit -eq 0
@@ -31,16 +41,10 @@ function Get-HardDrive(){
     }
     else{
         WriteLog 'Not running in a VM. Getting physical disk drive'
-        $DiskDrive = Get-WmiObject -Class 'Win32_DiskDrive' | Where-Object {$_.MediaType -eq 'Fixed hard disk media' -and $_.Model -ne 'Microsoft Virtual Disk'}
+        $DiskDrives += Get-WmiObject -Class 'Win32_DiskDrive' | Where-Object {$_.MediaType -eq 'Fixed hard disk media' -and $_.Model -ne 'Microsoft Virtual Disk'}
     }
-    $DeviceID = $DiskDrive.DeviceID
-    $BytesPerSector = $Diskdrive.BytesPerSector
 
-    # Create a custom object to return both values
-    $result = New-Object PSObject -Property @{
-        DeviceID = $DeviceID
-        BytesPerSector = $BytesPerSector
-    }
+    $result = $DiskDrives
 
     return $result
 }
@@ -136,17 +140,46 @@ $USBDrive = Get-USBDrive
 New-item -Path $USBDrive -Name $LogFileName -ItemType "file" -Force | Out-Null
 $LogFile = $USBDrive + $LogFilename
 $version = '2412.1'
+$WCSDVersion = "2412.1.1" # WCSD Edit 0 - Just for version tracking
 WriteLog 'Begin Logging'
 WriteLog "Script version: $version"
+WriteLog "WCSD Edit version: $WCSDVersion" # WCSD Edit 0 - Just for version tracking
 
 #Find PhysicalDrive
 # $PhysicalDeviceID = Get-HardDrive
-$hardDrive = Get-HardDrive
-if($null -eq $hardDrive){
+$hardDrives = @(Get-HardDrives)
+$hardDriveCount = $hardDrives.Count
+
+if($hardDriveCount -lt 1){
     WriteLog 'No hard drive found. Exiting'
     WriteLog 'Try adding storage drivers to the PE boot image (you can re-create your FFU and USB drive and add the PE drivers to the PEDrivers folder and add -CopyPEDrivers $true to the command line, or manually add them via DISM)'
     Exit
+} elseif ($hardDriveCount -gt 1){
+    WriteLog "Found $hardDriveCount disks"
+    $array = @()
+
+    for($i=0;$i -le $hardDriveCount -1;$i++){
+        $Properties = [ordered]@{Number = $i + 1 ; DiskModel = $hardDrives[$i].Model ; DiskSize = [string]$($hardDrives[$i].Size / 1GB) + " GB"}
+        $array += New-Object PSObject -Property $Properties
+    }
+    $array | Format-Table -AutoSize -Property Number, DiskSize, DiskModel
+    do {
+        try {
+            $var = $true
+            [int]$hardDriveSelected = Read-Host 'Enter the OS drive number'
+            $hardDriveSelected = ($hardDriveSelected -1)
+        }
+        catch {
+            Write-Host "Input was not in correct formate. Please enter a valid drive number"
+            $var = $false
+        }
+    } until (($hardDriveSelected -le $hardDriveCount -1) -and $var)
+
+    $hardDrive = $hardDrives[$hardDriveSelected]
+}else {
+    $hardDrive = $hardDrives[0]
 }
+
 $PhysicalDeviceID = $hardDrive.DeviceID
 $BytesPerSector = $hardDrive.BytesPerSector
 WriteLog "Physical BytesPerSector is $BytesPerSector"
@@ -267,11 +300,13 @@ if ($Unattend -and $UnattendPrefix){
     $PrefixToUse = $UnattendPrefixes[0]
     WriteLog "Will use $PrefixToUse as device name prefix"
     }
-    #Get serial number to append. This can make names longer than 15 characters. Trim any leading or trailing whitespace
-    $serial = (Get-CimInstance -ClassName win32_bios).SerialNumber.Trim()
-    #Combine prefix with serial
-    $computername = ($PrefixToUse + $serial) -replace "\s","" # Remove spaces because windows does not support spaces in the computer names
+    #------------------------------ Begin WCSD Edit 1 -------------------------------------------------------------
+    #Get Asset Tag
+    [string]$AssetTag = Read-Host 'Enter asset tag'
+    #Combine prefix with tag
+    $computername = ($PrefixToUse + $AssetTag) -replace "\s","" # Remove spaces because windows does not support spaces in the computer names
     #If computername is longer than 15 characters, reduce to 15. Sysprep/unattend doesn't like ComputerName being longer than 15 characters even though Windows accepts it
+    #------------------------------ End WCSD Edit 1 -------------------------------------------------------------
     If ($computername.Length -gt 15){
        $computername = $computername.substring(0,15)
     }
@@ -284,6 +319,14 @@ elseif($Unattend){
     Set-Computername($computername)
     Writelog "Computer name set to $computername"
 }
+#----------------------------------- Begin WCSD Edit 2 ---------------------------------------------------------
+elseif(!$UnattendFile){
+    Write-Host "FFU flash drive is missing the `"Unattend.xml`" file. Please correct the problem and try again." -ForegroundColor DarkRed
+    Read-Host "Press [ENTER] to exit"
+    WriteLog "ERROR: No unattend file was found. Imaging cannot complete without this."
+    exit
+}
+#------------------------------------ End WCSD Edit 2 -----------------------------------------------------------
 else {
     WriteLog 'No unattend folder found. Device name will be set via PPKG, AP JSON, or default OS name.'
 }
@@ -385,7 +428,33 @@ else {
 
 #Find Drivers
 $Drivers = $USBDrive + "Drivers"
-If (Test-Path -Path $Drivers)
+
+#------------------------------------------ BEGIN WCSD EDIT 3 ------------------------------------------------------
+# Try to autoselect device model's drivers
+# Get device model & manufacturer
+$DeviceModel = (Get-WmiObject -Class win32_computersystem).Model
+$DeviceManufacturer = (Get-WmiObject -Class win32_computersystem).Manufacturer
+
+# Trim to first 4 characters for lenovo
+if ($DeviceManufacturer -match "lenovo"){
+    $DeviceModel = $DeviceModel.substring(0,4)
+}
+
+# Look for drivers that match the device model
+$DriversAutoselect = (Get-ChildItem -Path $Drivers -Filter "*.txt" -Recurse | Where-Object {($_.BaseName -match $DeviceModel) -or ($_.BaseName -eq $DeviceModel)}).Directory
+if ($DriversAutoselect){
+    Write-Host "Autoselected drivers for $($DriversAutoselect.BaseName)"
+    $Drivers = $DriversAutoselect.FullName
+    $ChooseDrivers = $false
+} else {
+    # If driver's don't exist, set $ChooseDrivers
+    Write-Host "Could not autoselect drivers. Please choose a model."
+    $ChooseDrivers = $true
+}
+
+# Failed to autoselect drivers, will need to be manually selected or skipped
+If ((Test-Path -Path $Drivers) -and ($ChooseDrivers))
+#----------------------------------------------- END WCSD EDIT 3 ----------------------------------------------------
 {
     #Check if multiple driver folders found, if so, just select one folder to save time/space
     $DriverFolders = Get-ChildItem -Path $Drivers -directory

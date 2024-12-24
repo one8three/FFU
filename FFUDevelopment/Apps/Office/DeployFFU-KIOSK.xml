@@ -1,0 +1,32 @@
+<Configuration ID="10256a1e-a19b-4238-a403-f26a8096ac5d">
+  <Info Description="2023.01.24 Intune build for all users." />
+  <Add OfficeClientEdition="64" Channel="Current" OfficeMgmtCOM="TRUE" MigrateArch="TRUE">
+    <Product ID="O365ProPlusRetail">
+      <Language ID="en-us" />
+      <ExcludeApp ID="Groove" />
+      <ExcludeApp ID="Lync" />
+      <ExcludeApp ID="OneDrive" />
+      <ExcludeApp ID="OneNote" />
+      <ExcludeApp ID="Bing" />
+      <ExcludeApp ID="Teams" />
+      <ExcludeApp ID="Outlook" />
+    </Product>
+  </Add>
+  <Property Name="SharedComputerLicensing" Value="1" />
+  <Property Name="FORCEAPPSHUTDOWN" Value="TRUE" />
+  <Property Name="DeviceBasedLicensing" Value="1" />
+  <Property Name="SCLCacheOverride" Value="0" />
+  <RemoveMSI />
+  <AppSettings>
+    <Setup Name="Company" Value="Washoe County School District" />
+    <User Key="software\microsoft\office\16.0\common\general" Name="shownfirstrunoptin" Value="1" Type="REG_DWORD" App="office16" Id="L_DisableOptinWizard" />
+    <User Key="software\microsoft\office\16.0\common" Name="qmenable" Value="0" Type="REG_DWORD" App="office16" Id="L_EnableCustomerExperienceImprovementProgram" />
+    <User Key="software\microsoft\office\16.0\firstrun" Name="disablemovie" Value="1" Type="REG_DWORD" App="office16" Id="L_DisableMovie" />
+    <User Key="software\microsoft\office\16.0\firstrun" Name="bootedrtm" Value="1" Type="REG_DWORD" App="office16" Id="L_DisableOfficeFirstrun" />
+    <User Key="software\microsoft\office\16.0\excel\options" Name="defaultformat" Value="51" Type="REG_DWORD" App="excel16" Id="L_SaveExcelfilesas" />
+    <User Key="software\microsoft\office\16.0\outlook\preferences" Name="sendimmediatelyoffline" Value="1" Type="REG_DWORD" App="outlk16" Id="L_SendimmediatelywhenOffline" />
+    <User Key="software\microsoft\office\16.0\powerpoint\options" Name="defaultformat" Value="27" Type="REG_DWORD" App="ppt16" Id="L_SavePowerPointfilesas" />
+    <User Key="software\microsoft\office\16.0\word\options" Name="defaultformat" Value="" Type="REG_SZ" App="word16" Id="L_SaveWordfilesas" />
+  </AppSettings>
+  <Display Level="None" AcceptEULA="TRUE" />
+</Configuration>
