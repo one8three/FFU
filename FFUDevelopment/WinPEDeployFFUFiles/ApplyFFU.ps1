@@ -14,16 +14,18 @@ function Get-USBDrive(){
     return $USBDriveLetter
 }
 
-function Get-HardDrive(){
+function Get-HardDrives(){
     $SystemInfo = Get-WmiObject -Class 'Win32_ComputerSystem'
     $Manufacturer = $SystemInfo.Manufacturer
     $Model = $SystemInfo.Model
     WriteLog "Device Manufacturer: $Manufacturer"
     WriteLog "Device Model: $Model"
     WriteLog 'Getting Hard Drive info'
+    [array]$DiskDrives = @()
+    
     if ($Manufacturer -eq 'Microsoft Corporation' -and $Model -eq 'Virtual Machine'){
         WriteLog 'Running in a Hyper-V VM. Getting virtual disk on Index 0 and SCSILogicalUnit 0'
-        $DiskDrive = Get-WmiObject -Class 'Win32_DiskDrive' | Where-Object {$_.MediaType -eq 'Fixed hard disk media' `
+        $DiskDrives += Get-WmiObject -Class 'Win32_DiskDrive' | Where-Object {$_.MediaType -eq 'Fixed hard disk media' `
         -and $_.Model -eq 'Microsoft Virtual Disk' `
         -and $_.Index -eq 0 `
         -and $_.SCSILogicalUnit -eq 0
@@ -31,16 +33,10 @@ function Get-HardDrive(){
     }
     else{
         WriteLog 'Not running in a VM. Getting physical disk drive'
-        $DiskDrive = Get-WmiObject -Class 'Win32_DiskDrive' | Where-Object {$_.MediaType -eq 'Fixed hard disk media' -and $_.Model -ne 'Microsoft Virtual Disk'}
+        $DiskDrives += Get-WmiObject -Class 'Win32_DiskDrive' | Where-Object {$_.MediaType -eq 'Fixed hard disk media' -and $_.Model -ne 'Microsoft Virtual Disk'}
     }
-    $DeviceID = $DiskDrive.DeviceID
-    $BytesPerSector = $Diskdrive.BytesPerSector
 
-    # Create a custom object to return both values
-    $result = New-Object PSObject -Property @{
-        DeviceID = $DeviceID
-        BytesPerSector = $BytesPerSector
-    }
+    $result = $DiskDrives
 
     return $result
 }
@@ -141,12 +137,39 @@ WriteLog "Script version: $version"
 
 #Find PhysicalDrive
 # $PhysicalDeviceID = Get-HardDrive
-$hardDrive = Get-HardDrive
-if($null -eq $hardDrive){
+$hardDrives = @(Get-HardDrives)
+$hardDriveCount = $hardDrives.Count
+
+if($hardDriveCount -lt 1){
     WriteLog 'No hard drive found. Exiting'
     WriteLog 'Try adding storage drivers to the PE boot image (you can re-create your FFU and USB drive and add the PE drivers to the PEDrivers folder and add -CopyPEDrivers $true to the command line, or manually add them via DISM)'
     Exit
+} elseif ($hardDriveCount -gt 1){
+    WriteLog "Found $hardDriveCount disks"
+    $array = @()
+
+    for($i=0;$i -le $hardDriveCount -1;$i++){
+        $Properties = [ordered]@{Number = $i + 1 ; DiskModel = $hardDrives[$i].Model ; DiskSize = [string]$($hardDrives[$i].Size / 1GB) + " GB"}
+        $array += New-Object PSObject -Property $Properties
+    }
+    $array | Format-Table -AutoSize -Property Number, DiskSize, DiskModel
+    do {
+        try {
+            $var = $true
+            [int]$hardDriveSelected = Read-Host 'Enter the OS drive number'
+            $hardDriveSelected = ($hardDriveSelected -1)
+        }
+        catch {
+            Write-Host "Input was not in correct format. Please enter a valid drive number"
+            $var = $false
+        }
+    } until (($hardDriveSelected -le $hardDriveCount -1) -and $var)
+
+    $hardDrive = $hardDrives[$hardDriveSelected]
+}else {
+    $hardDrive = $hardDrives[0]
 }
+
 $PhysicalDeviceID = $hardDrive.DeviceID
 $BytesPerSector = $hardDrive.BytesPerSector
 WriteLog "Physical BytesPerSector is $BytesPerSector"
