@@ -5,9 +5,12 @@ REM d:\Office\setup.exe /configure d:\office\DeployFFU.xml
 REM Install Defender Platform Update
 REM Install Defender Definitions
 REM Install Windows Security Platform Update
+REM Install Windows Malicious Software Removal Tool
 REM Install OneDrive Per Machine
 REM Install Edge Stable
 REM Winget Win32 Apps
+REM START Batch variables placeholder
+REM END Batch variables placeholder
 REM Add additional apps below here
 REM Contoso App (Example)
 REM msiexec /i d:\Contoso\setup.msi /qn /norestart
@@ -40,6 +43,9 @@ REM KIOSK Install Edgenuity, Clever, and Canvas links
 powershell.exe -ex bypass -noprofile -file d:\KioskShortcuts\create_kiosk_shortcut.ps1 -Url "https://auth.edgenuity.com/login/saml/student/washoeschools" -Name "Edgenuity"
 powershell.exe -ex bypass -noprofile -file d:\KioskShortcuts\create_kiosk_shortcut.ps1 -Url "https://clever.com/in/washoe" -Name "Clever"
 powershell.exe -ex bypass -noprofile -file d:\KioskShortcuts\create_kiosk_shortcut.ps1 -Url "https://washoe.instructure.com" -Name "Canvas"
+
+REM KIOSK add shortcut to SndVol.exe
+powershell.exe -ex bypass -noprofile -file d:\KioskShortcuts\sndvol_shortcut.ps1
 
 REM Copying wifi profile to image
 echo Adding wifi profile...

@@ -170,7 +170,7 @@ if($hardDriveCount -lt 1){
             $hardDriveSelected = ($hardDriveSelected -1)
         }
         catch {
-            Write-Host "Input was not in correct formate. Please enter a valid drive number"
+            Write-Host "Input was not in correct format. Please enter a valid drive number"
             $var = $false
         }
     } until (($hardDriveSelected -le $hardDriveCount -1) -and $var)
