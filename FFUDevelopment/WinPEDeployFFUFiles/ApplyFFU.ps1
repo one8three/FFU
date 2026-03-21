@@ -1086,9 +1086,9 @@ If ($Unattend -or $UnattendPrefix -or $UnattendComputerName) {
             Write-Host "Computer name will be set to $computername"
         }
         else {
-            Writelog 'No matching serial number found in SerialComputerNames.csv. Setting random computer name to complete setup.'
-            Write-Host 'No matching serial number found in SerialComputerNames.csv. Setting random computer name to complete setup.'
-            [string]$computername = ("FFU-" + ( -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 11 | ForEach-Object { [char]$_ })))
+            Writelog 'No matching serial number found in SerialComputerNames.csv, asking for name'
+            Write-Host 'No matching serial number found in SerialComputerNames.csv. Please enter a device name.'
+            [string]$computername = Read-Host 'Enter device name'
             $computername = Set-Computername($computername)
             Writelog "Computer name will be set to $computername"
             Write-Host "Computer name will be set to $computername"
